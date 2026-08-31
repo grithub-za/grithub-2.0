@@ -3,16 +3,24 @@ import { getLatestPosts, getPosts } from "services/sanity/sanity.service";
 import NewsroomPod from "components/newsroom/NewsroomPod";
 import Paginate from "components/navigation/Paginate";
 import Style from "./newsroom.module.scss";
-
+import {getPayload} from 'payload';
+import config from '@payload-config'
 
 async function NewsHomePage({ searchParams}){
     const pageRange = 9;
+    const { page } = await searchParams ?? null;
+    const currentPage=Number(page) || 1
+    const payload= await getPayload({config})
 
-    const { previous, next } = await searchParams ?? null;
-    const latest = await getLatestPosts({ start: previous ?? 0, end: next ?? pageRange })
+    const latest = await payload.find({
+        collection:'newsroom',
+        limit: pageRange,
+        page: currentPage,
+        sort:'-publishedDate'
+    })
 
-    const totalPosts = await getPosts()
-    let totalPages = Math.ceil(totalPosts.length / pageRange)
+    const totalPosts = latest.totalDocs
+    let totalPages = Math.ceil(totalPosts/ pageRange)
     totalPages = totalPages === 1 ? 0 : totalPages
 
     return(
@@ -20,9 +28,9 @@ async function NewsHomePage({ searchParams}){
             <PageHeader title="Newsroom" />
             
             <div className="col-12 d-flex flex-wrap">
-                {latest.map((post) => {
+                {latest.docs.map((post) => {
                     return(
-                        <NewsroomPod key={post.slug?.current} {...post} />
+                        <NewsroomPod key= {post.id} {...post} />
                     )
                 })}
             </div>
@@ -47,7 +55,6 @@ async function NewsHomePage({ searchParams}){
 }
 
 export default NewsHomePage
-
 
 export async function generateMetadata({ params, searchParams }) {
     const { previous, next } = await searchParams

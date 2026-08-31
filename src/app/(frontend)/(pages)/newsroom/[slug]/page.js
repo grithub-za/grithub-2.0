@@ -1,55 +1,59 @@
 import Image from "next/image";
-import { getLatestPosts, getPostBySlug } from "services/sanity/sanity.service";
 import Style from "../newsroom.module.scss";
 import Link from "next/link";
-import { toHTML } from '@portabletext/to-html'
-import clsx from "clsx"
+import clsx from "clsx";
 import NewsRoomSchema from "components/schema/NewsRoomSchema";
-import { PortableText } from '@portabletext/react'
+import { defaultJSXConverters, RichText } from '@payloadcms/richtext-lexical/react'
+import { convertLexicalToPlaintext } from '@payloadcms/richtext-lexical/plaintext'
 import ShareButtons from "components/newsroom/ShareButtons";
-import { blurImage, voidPortableText } from "lib/constants";
+import { blurImage} from "lib/constants";
 import BodyImage from "components/newsroom/BodyImage";
+import {getPayload} from 'payload';
+import config from '@payload-config'
 
-
-async function NewsArticle({ params }){
-    const latest = await getLatestPosts({ end: 9 })
+async function NewsArticle({ params }) {
+    const end=9
+    const payload= await getPayload({config})
+    const latest = await payload.find({ collection:'newsroom',limit: end ,sort:'-publishedDate'})
     const { slug } = await params;
-    const post = await getPostBySlug(slug)
-
-    // make this date human readable by day, full month, year: '2024-12-15T20:15:00.000Z'
-    const date = new Date(post?.publishedAt).toLocaleDateString('en-GB', {
+    const articleSlug = encodeURIComponent(slug || '')
+    const post = await payload.find({collection:'newsroom',where:{slug:{equals:articleSlug}}})
+    const latestPost=post.docs[0]
+    const date = new Date(latestPost["publishedDate"]).toLocaleDateString('en-GB', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     })
 
-    const customComponents = {
-        types: {
-            image: ({ value }) => <BodyImage {...{ value, Style }} />
-        },
-        marks: {
-            hr: () =>  <hr className="my-4"/>,
-            link: ({children, value}) => {
-                const rel = !value.href.startsWith('/') ? 'noreferrer noopener' : undefined
+    const customComponents = ({ defaultConverters }) => ({
+    ...defaultConverters,
+    upload: ({ node }) => (
+    <BodyImage 
+        mainImage={node.value} 
+        caption={node.fields?.caption} 
+        Style={Style} 
+    />
+),
+    marks:{
+        hr: () => <hr className="my-4" />,
+        link: ({ children, node }) => {
+       const rel = !node.fields.url.startsWith('/') ? 'noreferrer noopener' : undefined
 
-                return (
-                  <a href={value.href} rel={rel} target={rel ? "_blank" : undefined}>
-                    {children}
-                  </a>
-                )
-            },
-        }
-    }
+    return (
+        <a href={node.fields.url} rel={rel} target={node.fields.newTab ? "_blank" : undefined}>
+            {children}
+        </a>
+    )
+}}
+})
 
-    
-   
     return(
         <>
             <section className="container-xxl d-flex py-md-5 p-4 flex-column flex-md-row mb-5">
                 <article className="col-12 col-md-8 pe-md-5 mb-4">
                     <header className="mb-4">
                         <h1 className="display-6 fw-bold mb-3">
-                            {post?.title}
+                            {latestPost["title"]}
                         </h1>
 
                         <ul className={clsx(Style.headerList, "text-muted fs-6")}>
@@ -59,16 +63,15 @@ async function NewsArticle({ params }){
                                         Published on: {date}
                                     </li>
                                     <li className={Style.metaListItem}>
-                                        By: {post?.author ?? "Garden Route Innovation & Technology Hub"}
+                                        By: {latestPost["Author"]?? "Garden Route Innovation & Technology Hub"}
                                     </li>
                                 </ul>
                             </li>
                            
-
                             <li className={Style.headerListItem}>
                                 <ShareButtons  
-                                    body={post?.body}
-                                    title={post?.title}
+                                    body={latestPost["Body"]}
+                                    title={latestPost["title"]}
                                     url={`https://grithub.org.za/newsroom/${slug}`}
                                 />
                             </li>
@@ -76,50 +79,45 @@ async function NewsArticle({ params }){
                     </header>
 
                     <figure className={Style.figure}>
+                        {latestPost["Main Image"]?.url && (
                         <Image 
                             className={Style.image} 
                             placeholder="blur"
-                            blurDataURL={post?.mainImage + `?h=1&w3` ?? blurImage}
-                            src={post?.mainImage} 
-                            alt={post?.mainImageAlt ?? post?.title} 
-                            width={900} 
-                            height={450} 
+                            blurDataURL={blurImage}
+                            src={latestPost["Main Image"].url} 
+                            alt={latestPost["Main Image"].alt ?? latestPost["title"]} 
+                            width={900}
+                            height={450}
                         />
-                        {post?.mainImageCaption && (
+                         )}
+                        {latestPost["Image Caption"]&& (
                             <figcaption className={Style.caption}>
-                                {post?.mainImageCaption}
+                                {latestPost["Image Caption"]}
                             </figcaption>
                         )}
                     </figure>
 
-
                     <div className={Style.body}>
-                        <PortableText 
-                            value={post?.body} 
-                            components={customComponents}
-                        />
+                        <RichText data={latestPost["Body"]}
+                            converters={customComponents}/>
                     </div>
                 </article>
 
-
-
-
                 <aside className="col-12 col-md-4">
                     <h3>Latest</h3>
-
                     <hr className="my-3"/>
 
                     <ul className="list-unstyled">
-                        {latest.map((post) => {
+                        {latest.docs.map((post) => {
                             return(
-                                <li key={post?.slug?.current} className="mb-4">
-                                    <Link href={`/newsroom/${post?.slug?.current}`} title={post.title}>
+                                <li key={post?.slug} className="mb-4">
+                                    <Link href={`/newsroom/${post?.slug}`} title={post['title']}>
                                         <h4 className="fs-6 mb-1">
-                                            {post.title}
+                                            {post['title']}
                                         </h4>
                                     </Link>
                                     <small className="text-muted fs-7">
-                                        {new Date(post?.publishedAt).toLocaleDateString('en-GB', {
+                                        {new Date(post["publishedDate"]).toLocaleDateString('en-GB', {
                                             year: 'numeric',
                                             month: 'long',
                                             day: 'numeric'
@@ -131,56 +129,49 @@ async function NewsArticle({ params }){
                     </ul>
                 </aside>
             </section>
-        
+
             <NewsRoomSchema
                 path={`https://grithub.org.za/newsroom/${slug}`}
-                title={post?.title}
-                description={post?.body}
-                image={post?.mainImage}
-                author={post?.author ?? "GRIT Hub Staff Writer"}
-                postDate={post?.publishedAt}
-                dateUpdated={post?._updatedAt}
+                title={latestPost["title"]}
+                description={latestPost["Body"]}
+                image={latestPost["Main Image"]}
+                author={latestPost["Author"] ?? "GRIT Hub Staff Writer"}
+                postDate={latestPost["publishedDate"]}
+                dateUpdated={latestPost["updatedAt"]}
             />
         </>
     )
 }
 
-
-
-
-
-
-
 export async function generateMetadata(props, parent) {
     const { slug } = await props.params;
-    const post = await getPostBySlug(slug)
-
-    const htmlBody = toHTML(post?.body, voidPortableText)
+    const articleSlug = encodeURIComponent(slug || '')
+    const payload= await getPayload({config})
+    const post = await payload.find({collection:'newsroom',where:{slug:{equals:articleSlug}}})
+    const latestPost=post.docs[0]
+    const body=latestPost.Body
+    const htmlBody = typeof body === 'string' ? body : body ? convertLexicalToPlaintext({ data: body }) : ''
     const newMetaDescription = htmlBody.slice(0, 160).replace(/(<([^>]+)>)/gi, "")
 
-
     return {
-        title: post?.title,
+        title: latestPost?.title,
         description: htmlBody.slice(0, 160),
         alternates: {
             canonical: `https://grithub.org.za/newsroom/${slug}`
         },
         openGraph: {
             url: `https://grithub.org.za/newsroom/${slug}`,
-            title: post?.title,
+            title: latestPost?.title,
             description: newMetaDescription,
             type: "website",
             images:[{
-                url: post?.mainImage,
-                alt: post?.title,
+                url: latestPost["Main Image"]?.url,
+                alt: latestPost["title"],
                 width: 800,
                 height: 800,
             }]
         }
     }
 }
-
-
-
 
 export default NewsArticle

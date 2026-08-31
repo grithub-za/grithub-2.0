@@ -1,24 +1,33 @@
+
 import { blurImage } from "@/lib/constants";
+
 import Style from "@frontend/(pages)/page.module.scss";
+
 import Image from "next/image";
+
 import Link from "next/link";
 
 
 
-function NewsroomPod({ slug, mainImage, title, publishedAt }){
+function NewsroomPod({ slug, "Main Image":mainImage, title, "publishedDate":publishedAt }){
+
+    const articleSlug = encodeURIComponent(slug || title || '')
+
     return(
         <div className="col-xl-4 col-md-6 col-12 p-2 mb-4">
-            <Link className="card shadow-sm h-100 text-decoration-none card-link" href={`/newsroom/${slug.current}`} title='Read More'>
-                <Image 
-                    src={mainImage} 
-                    width={500} 
-                    height={333} 
+            <Link className="card shadow-sm h-100 text-decoration-none card-link" href={`/newsroom/${articleSlug}`} title='Read More'>
+                {typeof mainImage=== 'object' && mainImage?.url && (
+                <Image
+                    src={mainImage.url}
+                    width={500}
+                    height={333}
                     placeholder="blur"
                     blurDataURL={blurImage}
-                    className={Style.cardTopImg} 
-                    alt={title + " image"} 
+                    className={Style.cardTopImg}
+                    alt={title + " image"}
                 />
-                
+                )}
+
                 <div className="card-body d-flex flex-column justify-content-between">
                     <h2 className="card-title fs-5 fw-bold">
                         {title}

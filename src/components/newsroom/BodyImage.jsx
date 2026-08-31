@@ -1,27 +1,23 @@
-import imageUrlBuilder from "@sanity/image-url";
-import { sanityClient } from "services/sanity/sanity.service";
 import Image from "next/image";
 import { blurImage } from "@/lib/constants";
 
-
-function BodyImage({ value, Style }){
-    const imageUrl = imageUrlBuilder(sanityClient).image(value).width(800).fit('max').auto('format').url()
-    
+function BodyImage({ mainImage, caption, Style }){
+    if (!mainImage?.url) return null
     return (
         <figure className={Style.figure}>
-            <Image 
-                className={Style.image}
-                src={imageUrl}
-                width={800}
-                height={547}
-                alt={value?.alt ?? "image"}
-                placeholder="blur"
-                blurDataURL={blurImage}
-            />
+            {typeof mainImage === 'object' && mainImage?.url && (
+                <Image
+                    className={Style.image}
+                    src={mainImage.url}
+                    width={800}
+                    height={547}
+                    alt={caption?.alt ?? mainImage?.alt ?? "image"}
+                    placeholder="blur"
+                    blurDataURL={blurImage}
+                />
+            )}
 
-            <figcaption className={Style.caption}>
-                {value?.caption}
-            </figcaption>
+            {caption && <figcaption className={Style.caption}>{caption}</figcaption>}
         </figure>
     )
 }

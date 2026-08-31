@@ -1,19 +1,16 @@
 "use client"
 
 import Script from "next/script"
-import { toHTML } from '@portabletext/to-html'
+import { convertLexicalToPlaintext } from '@payloadcms/richtext-lexical/plaintext'
+
 import { voidPortableText } from "lib/constants"
 
-
 export default function NewsRoomSchema({ path, title = "", description = "", image, author="", postDate="", dateUpdated="" }){
-    const htmlBody = toHTML(description, voidPortableText)
-    const metaDescription = htmlBody.slice(0, 160)
-
-    // write regex to remove html tags from metaDescription
+    const plainText = typeof description === 'string' ? description : description ? convertLexicalToPlaintext({ data: description }) : ''
+    const metaDescription = plainText.slice(0, 160)
     const newMetaDescription = metaDescription.replace(/(<([^>]+)>)/gi, "")
 
-    
-    const data = () => { 
+    const data = () => {
         return{
             __html: `{
                 "@context": "https://schema.org/",
@@ -46,10 +43,9 @@ export default function NewsRoomSchema({ path, title = "", description = "", ima
         }
     }
 
-
     return(
-        <Script 
-            type="application/ld+json" 
+        <Script
+            type="application/ld+json"
             id="newsroomSchema"
             dangerouslySetInnerHTML={data()}
             key="item-jsonld-blog"
